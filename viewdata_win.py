@@ -82,7 +82,7 @@ class Fits(HasTraits):
         
     dofit = Bool(False, desc="do fit?: Check box to enable this fit", label="fit?")
     fitexpr = Str(label='f(x)=')
-    func = Enum('Gaussian','Sine','Exponential')
+    func = Enum('Gaussian','Sine','ExpSine')
     x0 = Float(-1e15, label="x0", desc="x0 for fit range")
     xf = Float(1e15, label="xf", desc="xf for fit range")
     
@@ -128,6 +128,8 @@ class Fits(HasTraits):
             self.fitexpr = 'a[0] * exp( - ( (x-a[1]) / a[2] )**2 )+a[3]'
         if self.func == 'Sine':
             self.fitexpr = 'a[0] * sin( a[1]*x-a[2]) + a[3]'
+        if self.func == 'ExpSine':
+            self.fitexpr = 'p[0]*sin( p[1]*x-p[2] )*exp(-x*p[3]) + p[4]'    
                               
     def fit(self,data):
         fitdata, n = self.limits(data)
@@ -137,16 +139,25 @@ class Fits(HasTraits):
         if self.func == 'Gaussian':
             if not self.dofit:
                 return fitlibrary.gaus1d_fun(self.a0[:,0] , fitdata[:,0])
-            display("Fitting to a Gaussian")
-            self.a=fitlibrary.gaus1d(self.a0[:,0],fitdata)
-            return fitlibrary.gaus1d_fun(self.a[:,0] , fitdata[:,0])
+            else:
+                display("Fitting to a Gaussian")
+                self.a=fitlibrary.gaus1d(self.a0[:,0],fitdata)
+                return fitlibrary.gaus1d_fun(self.a[:,0] , fitdata[:,0])
         if self.func == 'Sine':
             if not self.dofit:
                 return fitlibrary.sine_fun(self.a0[:,0], fitdata[:,0])
-            display("Fitting to a Sine")
-            self.a=fitlibrary.sine(self.a0[:,0],fitdata)
-            return fitlibrary.sine_fun(self.a , fitdata[:,0])
-            
+            else:
+                display("Fitting to a Sine")
+                self.a=fitlibrary.sine(self.a0[:,0],fitdata)
+                return fitlibrary.sine_fun(self.a , fitdata[:,0])
+        if self.func == 'ExpSine':
+            if not self.dofit:
+                return fitlibrary.expsine_fun(self.a0[:,0], fitdata[:,0])
+            else:
+                display("Fitting to a ExpSine")
+                self.a=fitlibrary.expsine(self.a0[:,0],fitdata)
+                return fitlibrary.expsine_fun(self.a , fitdata[:,0])
+                
 class DataSet(HasTraits):
     """ Object that holds the information defining a data set"""
     def _pck_(self,action,fpck):

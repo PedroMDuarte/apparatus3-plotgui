@@ -55,6 +55,33 @@ def sine_fun( a, datax):
     return ax,ay
     
     
+def expsine(a0,data):
+    p0=(a0[0],a0[1],a0[2],a0[3],a0[4])
+    datax=data[:,0]
+    datay=data[:,1]
+    # Target function
+    fitfunc = lambda p, x: p[0]*numpy.sin( p[1]*x-p[2] )*numpy.exp(-x*p[3]) + p[4]
+    # Error function
+    errfunc = lambda p, x, dat: fitfunc(p,x)-dat
+    # Fit
+    p1,success = optimize.leastsq(errfunc,p0[:],args=(datax,datay))
+    
+    #~ print "--Sine Fit Results---"
+    #~ print datax
+    #~ print datay
+    #~ print p1
+    
+    return p1
+    
+def expsine_fun( a, datax):
+    p=(a[0],a[1],a[2],a[3],a[4])
+    ay=numpy.array([])
+    datax = numpy.sort(datax)
+    ax=numpy.linspace(numpy.min(datax), numpy.max(datax), 100)
+    for x in ax:
+        ay=numpy.append(ay, p[0]*numpy.sin( p[1]*x-p[2] )*numpy.exp(-x*p[3]) + p[4])
+    return ax,ay
+    
     
 if __name__ == "__main__":
     print ""
@@ -100,7 +127,24 @@ if __name__ == "__main__":
     
     
     
-    
+    print ""
+    print " * expsine"
+    # generate random gaussian data
+    p = [10, 5, 2, 1,1]
+    ax=numpy.linspace(0,10,100)
+    ax,dat = expsine_fun( p, ax)
+    ay = numpy.array(dat)
+    noise = 0.1*numpy.random.rand(100)-1
+    noisydat = ay+noise-1
+    # fit noisy data with gaussian, starting from a random p0
+    p0 = p + numpy.random.rand(5)-1
+    pFit = expsine( p0, numpy.transpose(numpy.array((ax,noisydat))) )
+    # Get a plot of the fit results
+    fitX,fitY=expsine_fun(pFit , ax)
+    # Show the plot on screen 
+    plt.plot(ax, noisydat,'.')
+    plt.plot(fitX,fitY,'-')
+    plt.show()
     
     
     
