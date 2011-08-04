@@ -1,150 +1,64 @@
 from scipy import optimize
 import numpy
 import matplotlib.pyplot as plt
+import inspect
 
-def gaus1d(a0,data):
-    #print a0
-    p0=(a0[0],a0[1],a0[2],a0[3])
-    datax=data[:,0]
-    datay=data[:,1]
-    # Target function
-    fitfunc = lambda p, x: p[0]*numpy.exp(-((x-p[1])/p[2])**2)+p[3]
-    # Error function
-    errfunc = lambda p, x, dat: fitfunc(p,x)-dat
-    # Fit
-    p1,success = optimize.leastsq(errfunc,p0[:],args=(datax,datay))
-    p1 = numpy.append(p1,[0.0]).reshape(5,1)
-    return p1
-    
-def gaus1d_fun( a, datax):
-    p=(a[0],a[1],a[2],a[3])
-    ay=numpy.array([])
-    datax = numpy.sort(datax)
-    ax=numpy.linspace(numpy.min(datax), numpy.max(datax), 100)
-    for x in ax:
-        ay=numpy.append(ay, p[0]*numpy.exp(-((x-p[1])/p[2])**2)+p[3])
-    return ax,ay
-    
+def gaus1d_function(x,p0,p1,p2,p3): return p0*numpy.exp(-((x-p1)/p2)**2)+p3
+def sine_function(x,p0,p1,p2,p3): return p0*numpy.sin(p1*x*numpy.pi*2-p2)+p3
+def expsine_function(x,p0,p1,p2,p3,p4): return p0*numpy.sin(p1*x*numpy.pi*2-p2)*numpy.exp(-x*p3)+p4
 
-def sine(a0,data):
-    p0=(a0[0],a0[1],a0[2],a0[3])
+def fit_function(p,data,function):
+    # Chekck the length of p
+    pLen = len(inspect.getargspec(function)[0])-1
+    p0 = p[0:pLen]
+    
     datax=data[:,0]
-    datay=data[:,1]
-    # Target function
-    fitfunc = lambda p, x: p[0]*numpy.sin( p[1]*x-p[2] ) + p[3]
-    # Error function
-    errfunc = lambda p, x, dat: fitfunc(p,x)-dat
-    # Fit
-    p1,success = optimize.leastsq(errfunc,p0[:],args=(datax,datay))
-    p1 = numpy.append(p1,[0.0]).reshape(5,1)
+    datay=data[:,1]    
+    pfit, pvariance = optimize.curve_fit(function,datax,datay,p0)
+    error=[]
+    for i in range(len(pfit)):
+        error.append(pvariance[i][i]**0.5)
     
-    #~ print "--Sine Fit Results---"
-    #~ print datax
-    #~ print datay
-    #~ print p1
+    error = numpy.append(numpy.array(error),numpy.zeros(5-len(p0))).reshape(5,1)
     
-    return p1
+    # Return same length of pfit
+    pfit = numpy.append(pfit,numpy.zeros(5-len(p0))).reshape(5,1)
     
-def sine_fun( a, datax):
-    p=(a[0],a[1],a[2],a[3])
-    ay=numpy.array([])
-    datax = numpy.sort(datax)
-    ax=numpy.linspace(numpy.min(datax), numpy.max(datax), 100)
-    for x in ax:
-        ay=numpy.append(ay, p[0]*numpy.sin( p[1]*x-p[2] ) + p[3])
-    return ax,ay
-    
-    
-def expsine(a0,data):
-    p0=(a0[0],a0[1],a0[2],a0[3],a0[4])
-    datax=data[:,0]
-    datay=data[:,1]
-    # Target function
-    fitfunc = lambda p, x: p[0]*numpy.sin( p[1]*x-p[2] )*numpy.exp(-x*p[3]) + p[4]
-    # Error function
-    errfunc = lambda p, x, dat: fitfunc(p,x)-dat
-    # Fit
-    p1,success = optimize.leastsq(errfunc,p0[:],args=(datax,datay))
-    
-    #~ print "--Sine Fit Results---"
-    #~ print datax
-    #~ print datay
-    #~ print p1
-    
-    return p1
-    
-def expsine_fun( a, datax):
-    p=(a[0],a[1],a[2],a[3],a[4])
-    ay=numpy.array([])
-    datax = numpy.sort(datax)
-    ax=numpy.linspace(numpy.min(datax), numpy.max(datax), 100)
-    for x in ax:
-        ay=numpy.append(ay, p[0]*numpy.sin( p[1]*x-p[2] )*numpy.exp(-x*p[3]) + p[4])
-    return ax,ay
-    
-    
+    return pfit,error
+
+def plot_function(p,datax,function):
+
+    # Chekck the length of p
+    pLen = len(inspect.getargspec(function)[0])-1
+    p0 = p[0:pLen]
+    x = numpy.linspace(numpy.min(datax), numpy.max(datax), 100)
+    y = numpy.array([function(i,*p0) for i in x])
+    return x, y
+
+def test_function(p,function):
+    # generate random data
+    ax=numpy.linspace(0,10,100)
+    x,dat = plot_function( p, ax, function)
+    ay = numpy.array(dat)
+    noise = 1*numpy.random.rand(100)-1
+    noisydat = ay+noise-1
+    # fit noisy data, starting from a random p0
+    p0 = p + numpy.random.rand(len(p))-1
+    pFit , error = fit_function( p0, numpy.transpose(numpy.array((ax,noisydat))),function)
+    # Get a plot of the fit results
+    fitX, fitY = plot_function(pFit,numpy.transpose(numpy.array((ax,noisydat))),function)
+    # Show the plot on screen 
+    plt.plot(ax, noisydat,'.')
+    plt.plot(fitX,fitY,'-')
+    plt.show()
+  
 if __name__ == "__main__":
     print ""
     print "------ Testing fitlibrary.py ------"
-    
     print ""
-    print " * gaus1d"
-    # generate random gaussian data
-    p = [10, 5, 2, 4]
-    ax=numpy.linspace(0,10,100)
-    ax,dat = gaus1d_fun( p, ax)
-    ay = numpy.array(dat)
-    noise = 2*numpy.random.rand(100)-1
-    noisydat = ay+noise-1
-    # fit noisy data with gaussian, starting from a random p0
-    p0 = p + numpy.random.rand(4)-1
-    pFit = gaus1d( p0, numpy.transpose(numpy.array((ax,noisydat))) )
-    # Get a plot of the fit results
-    fitX,fitY=gaus1d_fun(pFit , ax)
-    # Show the plot on screen 
-    plt.plot(ax, noisydat,'.')
-    plt.plot(fitX,fitY,'-')
-    plt.show()
-    
-    print ""
-    print " * sine"
-    # generate random sine data
-    p = [10, 5, 2, 4]
-    ax=numpy.linspace(0,10,100)
-    ax,dat = sine_fun( p, ax)
-    ay = numpy.array(dat)
-    noise = 0.4*(numpy.random.rand(100))
-    noisydat = ay+noise-1
-    # fit noisy data,starting from a random p0
-    p0 = p + 0.2*(numpy.random.rand(4)-1)
-    pFit = sine( p0, numpy.transpose(numpy.array((ax,noisydat))) )
-    # Get a plot of the fit results
-    fitX,fitY=sine_fun(pFit , ax)
-    # Show the plot on screen 
-    plt.plot(ax, noisydat,'.')
-    plt.plot(fitX,fitY,'-')
-    plt.show()
-    
-    
-    
-    print ""
-    print " * expsine"
-    # generate random gaussian data
-    p = [10, 5, 2, 1,1]
-    ax=numpy.linspace(0,10,100)
-    ax,dat = expsine_fun( p, ax)
-    ay = numpy.array(dat)
-    noise = 0.1*numpy.random.rand(100)-1
-    noisydat = ay+noise-1
-    # fit noisy data with gaussian, starting from a random p0
-    p0 = p + numpy.random.rand(5)-1
-    pFit = expsine( p0, numpy.transpose(numpy.array((ax,noisydat))) )
-    # Get a plot of the fit results
-    fitX,fitY=expsine_fun(pFit , ax)
-    # Show the plot on screen 
-    plt.plot(ax, noisydat,'.')
-    plt.plot(fitX,fitY,'-')
-    plt.show()
-    
-    
+
+  test_function([1,0.5,4,0.5,1],expsine_function)
+
+
+
     
