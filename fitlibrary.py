@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 import inspect
 
 def gaus1d_function(x,p0,p1,p2,p3): return p0*numpy.exp(-((x-p1)/p2)**2)+p3
+def exp_function(x,p0,p1,p2): return p0*numpy.exp(-(x)/p1)+p2
 def sine_function(x,p0,p1,p2,p3): return p0*numpy.sin(p1*x*numpy.pi*2-p2)+p3
 def expsine_function(x,p0,p1,p2,p3,p4): return p0*numpy.sin(p1*x*numpy.pi*2-p2)*numpy.exp(-x*p3)+p4
 def temperature_function(x,p0,p1): return (p0**2+13.85e-6*1e8*2*p1*x**2)**0.5

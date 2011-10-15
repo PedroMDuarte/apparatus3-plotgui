@@ -94,7 +94,7 @@ class Fits(HasTraits):
 			
     dofit = Bool(False, desc="do fit?: Check box to enable this fit", label="fit?")
     fitexpr = Str(label='f(x)=')
-    func = Enum('Gaussian','Sine','ExpSine','Temperature')
+    func = Enum('Gaussian','Sine','ExpSine','Temperature','Exp')
     x0 = Float(-1e15, label="x0", desc="x0 for fit range")
     xf = Float(1e15, label="xf", desc="xf for fit range")
     
@@ -140,6 +140,8 @@ class Fits(HasTraits):
     def _setfitexprs_(self):
         if self.func == 'Gaussian':
             self.fitexpr = 'a[0] * exp( - ( (x-a[1]) / a[2] )**2 )+a[3]'
+        if self.func == 'Exp':
+            self.fitexpr = 'a[0] * exp( - x / a[1]  )+a[2]'
         if self.func == 'Sine':
             self.fitexpr = 'a[0] * sin( a[1]*x*2*pi-a[2]) + a[3]'
         if self.func == 'ExpSine':
@@ -180,6 +182,13 @@ class Fits(HasTraits):
                 display("Fitting to a ExpSine")
                 self.a, self.ae=fitlibrary.fit_function(self.a0[:,0],fitdata,fitlibrary.temperature_function)
                 return fitlibrary.plot_function(self.a[:,0] , fitdata[:,0],fitlibrary.temperature_function)
+        if self.func == 'Exp':
+            if not self.dofit:
+                return fitlibrary.plot_function(self.a[:,0] , fitdata[:,0],fitlibrary.exp_function)
+            else:
+                display("Fitting to a Exp")
+                self.a, self.ae=fitlibrary.fit_function(self.a0[:,0],fitdata,fitlibrary.exp_function)
+                return fitlibrary.plot_function(self.a[:,0] , fitdata[:,0],fitlibrary.exp_function)
                 
 class DataSet(HasTraits):
     """ Object that holds the information defining a data set"""
