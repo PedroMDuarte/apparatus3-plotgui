@@ -1,8 +1,9 @@
 from threading import Thread
 from time import sleep
 from enthought.traits.api import *
-from enthought.traits.ui.api import View, Item, Group, HSplit, VSplit,Handler, CheckListEditor, EnumEditor, ListStrEditor,ArrayEditor
+from enthought.traits.ui.api import View, Item, Group, HGroup, VGroup, HSplit, VSplit,Handler, CheckListEditor, EnumEditor, ListStrEditor,ArrayEditor, spring
 from enthought.traits.ui.menu import NoButtons
+from enthought.traits.ui.file_dialog import save_file,open_file
 from enthought.chaco.api import Plot, ArrayPlotData
 from enthought.enable.component_editor import ComponentEditor
 from enthought.chaco.chaco_plot_editor import ChacoPlotItem
@@ -26,8 +27,8 @@ import fitlibrary
 
 # Check the OS and give correct path dependency
 if os.name == "posix":
-    #Change this to the mount point for atomcool/lab. When using Linux.
-    atomcool_lab_path = '/home/ernie/atomcool_lab/'
+    #Change this to the mount point for atomcool/lab. When using Linuax.
+    atomcool_lab_path = os.environ['HOME']+'/atomcool_lab/'
 else:
     #Change this to the map drive for atomcool/lab. When using Windows.
     atomcool_lab_path = 'L:/'
@@ -225,7 +226,7 @@ class DataSet(HasTraits):
     
     X = Str('TRAPFREQ:modfreq', label="X")
     Y = Str('CPP:ax0w', label="Y")
-   
+    
     c = Str('', label="Color") 
 
     datadir = Str( DataDir(), label="DataDir", desc="directory where reports are located")
@@ -238,7 +239,7 @@ class DataSet(HasTraits):
     fit5 = Instance(Fits, ())
 
     raw_data = String()
-
+    saveraw = Button('Save Raw Data')
     fitw=550
    
     view = View( Group(
@@ -268,7 +269,8 @@ class DataSet(HasTraits):
                             
                     Group(     Item (
                                     'raw_data',show_label=False, springy=True, style='custom' 
-                                   ),  label='Raw Data')
+                                   ),
+                               Item('saveraw',show_label=False),label='Raw Data')
                                    ,dock='tab', height=600
               )
 
@@ -279,6 +281,15 @@ class DataSet(HasTraits):
        display(errmsg)
        self.raw_data = rawdat
        return data
+    
+    def _saveraw_changed(self):
+        """ Save raw data to choosen location"""
+      
+        file_name = save_file()
+        if file_name != '':
+            file_raw=open(file_name,"w+b")
+            file_raw.write(self.raw_data)
+            file_raw.close()
       
 def process(dataset_array, image_clear, figure):
     """ Function called to do the processing """
@@ -295,7 +306,7 @@ def process(dataset_array, image_clear, figure):
             data = set.getdata_()
             
             datX, datY = (data[:,0], data[:,1])
-            fitX, fitY =  set.fit1.fit(data)
+            fitX, fitY =  set.fit1.fit(data)  if set.fit1.dofit else (None,None)
             
             if data !=None:
                 
@@ -407,7 +418,9 @@ class ControlPanel(HasTraits):
  
     clear = Button("clear")
     replot = Button("replot")
-    autoplot = Bool(False, desc="autoplotting: Check box to autplot", label="auto")
+    savepck = Button("save pck")
+    loadpck = Button("load pck")
+    autoplot = Bool(False, desc="autoplotting: Check box to autplot", label="auto plotting")
 
     dat1 = Instance(DataSet, ())
     dat2 = Instance(DataSet, ())
@@ -429,9 +442,10 @@ class ControlPanel(HasTraits):
 
     view = View(  
                             
-                                    Item('clear', show_label=False),
-                                    Item('replot', show_label=False ),
-                                    Item('autoplot', show_label=False ),
+                                    HGroup(Item('clear', show_label=False),Item('replot', show_label=False ),spring,Item('savepck', show_label=False ),Item('loadpck', show_label=False )),
+                                        
+                                    Item('autoplot', show_label=True ),
+                                   
                                     
                                    
                                   VSplit(
@@ -496,7 +510,27 @@ class ControlPanel(HasTraits):
             self.fitting_thread.dat5 = self.dat5                   # Pass the data sets
             self.fitting_thread.start()                            # Start the fitting thread
 
-    
+    def _savepck_changed ( self ):
+        """ Handles the user clicking the 'save pck...' button. Save the pck file to desired directory
+        """ 
+        file_name = save_file()
+        if file_name != '':
+            file_pck=open(file_name,"w+b")
+            print 'Saving panel to pck.'
+            self._pck_('save',file_pck)
+            file_pck.close()
+
+    def _loadpck_changed ( self ):
+        """ Handles the user clicking the 'Open...' button. Load the pck file from desired directory
+        """
+        file_name = open_file()
+        if file_name != '':
+            print 'Loading panel from pck.'
+            file_pck=open(file_name,"rb")
+            self._pck_('load',file_pck)
+            file_pck.close()
+
+            
     def add_line(self, string):
         """ Adds a line to the textbox display.
         """
@@ -590,6 +624,7 @@ class MainWindow(HasTraits):
             fpck=open(f,"w+b")
         self.panel._pck_(action,fpck)
         fpck.close()
+
 
     
     view = View(HSplit(Item('figure', editor=MPLFigureEditor(), dock='vertical'),
