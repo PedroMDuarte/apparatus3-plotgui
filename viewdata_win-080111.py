@@ -1,9 +1,8 @@
 from threading import Thread
 from time import sleep
 from enthought.traits.api import *
-from enthought.traits.ui.api import View, Item, Group, HGroup, VGroup, HSplit, VSplit,Handler, CheckListEditor, EnumEditor, ListStrEditor,ArrayEditor, spring
+from enthought.traits.ui.api import View, Item, Group, HSplit, VSplit,Handler, CheckListEditor, EnumEditor, ListStrEditor,ArrayEditor
 from enthought.traits.ui.menu import NoButtons
-from enthought.traits.ui.file_dialog import save_file,open_file
 from enthought.chaco.api import Plot, ArrayPlotData
 from enthought.enable.component_editor import ComponentEditor
 from enthought.chaco.chaco_plot_editor import ChacoPlotItem
@@ -25,33 +24,24 @@ from configobj import ConfigObj
 
 import fitlibrary
 
-# Check the OS and give correct path dependency
-if os.name == "posix":
-    #Change this to the mount point for atomcool/lab. When using Linuax.
-    atomcool_lab_path = os.environ['HOME']+'/atomcool_lab/'
-else:
-    #Change this to the map drive for atomcool/lab. When using Windows.
-    atomcool_lab_path = 'L:/'
-
 def LastShot():
-    shotfile = open('%sdata/app3/comms/RunNumber'%atomcool_lab_path,'r')
+    shotfile = open('L:/data/app3/comms/RunNumber','r')
     shotnum = int( shotfile.readline() )
     shotfile.close()
     return shotnum
 
 def LastAnalyzed():
-    file= open('%sdata/app3/comms/AnaNumber'%atomcool_lab_path,'r')
+    file= open('L:/data/app3/comms/AnaNumber','r')
     lastnum = int( file.readline() )
     file.close()
     return lastnum
     
 
 def DataDir():
-    savedirfile = open('%sdata/app3/comms/SaveDir'%atomcool_lab_path,'r')
+    savedirfile = open('L:/data/app3/comms/SaveDir','r')
     savedir = "L:" +  savedirfile.readline().split(':')[1].replace('\\','/') 
     savedirfile.close()
     return savedir
-
 
 
     
@@ -64,6 +54,9 @@ global display
 global colors 
 
 colors = ['#0D8800','#1729E0','#00A779','#D8005F','green','red','magenta','black']
+
+global n_fitp
+n_fitp = 8
 
   
 
@@ -80,8 +73,6 @@ class Fits(HasTraits):
             pickle.dump( self.yf, fpck )
             pickle.dump( self.a0, fpck )
             pickle.dump( self.a, fpck )
-
-			
         if action == 'load':
             self.dofit =  pickle.load( fpck )
             self.func =  pickle.load( fpck )
@@ -91,21 +82,21 @@ class Fits(HasTraits):
             self.yf = pickle.load( fpck )
             self.a0 = pickle.load( fpck )
             self.a = pickle.load( fpck )
-
-			
+            
+    global n_fitp
+        
     dofit = Bool(False, desc="do fit?: Check box to enable this fit", label="fit?")
     fitexpr = Str(label='f(x)=')
-    func = Enum('Gaussian','Sine','ExpSine','Temperature','Exp')
+    func = Enum('Gaussian','Sine','Exponential')
     x0 = Float(-1e15, label="x0", desc="x0 for fit range")
     xf = Float(1e15, label="xf", desc="xf for fit range")
     
     y0 = Float(-1e15, label="y0", desc="y0 for fit range")
     yf = Float(1e15, label="yf", desc="yf for fit range")
 
-    a0 = Array(numpy.float,(5,1),editor=ArrayEditor(width=-100))
-    a = Array(numpy.float,(5,1),editor=ArrayEditor(width=-100))
-    ae = Array(numpy.float,(5,1),editor=ArrayEditor(width=-100))
-	
+    a0 = Array(numpy.float,(n_fitp,1),editor=ArrayEditor(width=-100))
+    a = Array(numpy.float,(n_fitp,1),editor=ArrayEditor(width=-100))
+
     traits_view = View(
                     Group(Group(
                        Item('dofit'),
@@ -124,7 +115,6 @@ class Fits(HasTraits):
                     Group(
                        Item('a0'),
                        Item('a'),
-					   Item('ae'),
                        orientation='horizontal'),),
                        dock='vertical',
                )
@@ -141,14 +131,8 @@ class Fits(HasTraits):
     def _setfitexprs_(self):
         if self.func == 'Gaussian':
             self.fitexpr = 'a[0] * exp( - ( (x-a[1]) / a[2] )**2 )+a[3]'
-        if self.func == 'Exp':
-            self.fitexpr = 'a[0] * exp( - x / a[1]  )+a[2]'
         if self.func == 'Sine':
-            self.fitexpr = 'a[0] * sin( a[1]*x*2*pi-a[2]) + a[3]'
-        if self.func == 'ExpSine':
-            self.fitexpr = 'a[0]*sin( a[1]*x*2*pi-a[2] )*exp(-x*a[3]) + a[4]'
-        if self.func == 'Temperature':
-            self.fitexpr = '(a[0]^2+2*kb/M*a[1]*x^2)^0.5' 
+            self.fitexpr = 'a[0] * sin( a[1]*x-a[2]) + a[3]'
                               
     def fit(self,data):
         fitdata, n = self.limits(data)
@@ -157,40 +141,17 @@ class Fits(HasTraits):
             return None,None
         if self.func == 'Gaussian':
             if not self.dofit:
-                return fitlibrary.plot_function(self.a[:,0] , fitdata[:,0],fitlibrary.gaus1d_function)
-            else:
-                display("Fitting to a Gaussian")
-                self.a, self.ae=fitlibrary.fit_function(self.a0[:,0],fitdata,fitlibrary.gaus1d_function)
-                return fitlibrary.plot_function(self.a[:,0] , fitdata[:,0],fitlibrary.gaus1d_function)
+                return fitlibrary.gaus1d_fun(self.a0[:,0] , fitdata[:,0])
+            display("Fitting to a Gaussian")
+            self.a=fitlibrary.gaus1d(self.a0[:,0],fitdata)
+            return fitlibrary.gaus1d_fun(self.a[:,0] , fitdata[:,0])
         if self.func == 'Sine':
             if not self.dofit:
-                return fitlibrary.plot_function(self.a[:,0] , fitdata[:,0],fitlibrary.sine_function)
-            else:
-                display("Fitting to a Sine")
-                self.a, self.ae=fitlibrary.fit_function(self.a0[:,0],fitdata,fitlibrary.sine_function)
-                return fitlibrary.plot_function(self.a[:,0] , fitdata[:,0],fitlibrary.sine_function)
-        if self.func == 'ExpSine':
-            if not self.dofit:
-                return fitlibrary.plot_function(self.a[:,0] , fitdata[:,0],fitlibrary.expsine_function)
-            else:
-                display("Fitting to a ExpSine")
-                self.a, self.ae=fitlibrary.fit_function(self.a0[:,0],fitdata,fitlibrary.expsine_function)
-                return fitlibrary.plot_function(self.a[:,0] , fitdata[:,0],fitlibrary.expsine_function)
-        if self.func == 'Temperature':
-            if not self.dofit:
-                return fitlibrary.plot_function(self.a[:,0] , fitdata[:,0],fitlibrary.temperature_function)
-            else:
-                display("Fitting to a ExpSine")
-                self.a, self.ae=fitlibrary.fit_function(self.a0[:,0],fitdata,fitlibrary.temperature_function)
-                return fitlibrary.plot_function(self.a[:,0] , fitdata[:,0],fitlibrary.temperature_function)
-        if self.func == 'Exp':
-            if not self.dofit:
-                return fitlibrary.plot_function(self.a[:,0] , fitdata[:,0],fitlibrary.exp_function)
-            else:
-                display("Fitting to a Exp")
-                self.a, self.ae=fitlibrary.fit_function(self.a0[:,0],fitdata,fitlibrary.exp_function)
-                return fitlibrary.plot_function(self.a[:,0] , fitdata[:,0],fitlibrary.exp_function)
-                
+                return fitlibrary.sine_fun(self.a0[:,0], fitdata[:,0])
+            display("Fitting to a Sine")
+            self.a=fitlibrary.sine(self.a0[:,0],fitdata)
+            return fitlibrary.sine_fun(self.a , fitdata[:,0])
+            
 class DataSet(HasTraits):
     """ Object that holds the information defining a data set"""
     def _pck_(self,action,fpck):
@@ -200,7 +161,7 @@ class DataSet(HasTraits):
            pickle.dump( self.c, fpck )
            pickle.dump( self.datadir, fpck )
            pickle.dump( self.range, fpck )
-           fit_a = [self.fit1]
+           fit_a = [self.fit1, self.fit2, self.fit3, self.fit4, self.fit5]
            for f in fit_a:
                f._pck_(action,fpck)
        if action == 'load':
@@ -209,12 +170,16 @@ class DataSet(HasTraits):
            self.c = pickle.load( fpck )
            self.datadir = pickle.load( fpck )
            self.range = pickle.load( fpck )           
-           fit_a = [self.fit1]
+           fit_a = [self.fit1, self.fit2, self.fit3, self.fit4, self.fit5]
            for f in fit_a:
                f._pck_(action,fpck)
            
     def _setfitexprs_(self):
         self.fit1._setfitexprs_()
+        self.fit2._setfitexprs_()
+        self.fit3._setfitexprs_()
+        self.fit4._setfitexprs_()
+        self.fit5._setfitexprs_()
 
     plotme = Bool(False, label="plot me ?")
     X2 = Bool(False, label="X2?")
@@ -222,26 +187,26 @@ class DataSet(HasTraits):
     
     X = Str('TRAPFREQ:modfreq', label="X")
     Y = Str('CPP:ax0w', label="Y")
-    
+   
     c = Str('', label="Color") 
 
     datadir = Str( DataDir(), label="DataDir", desc="directory where reports are located")
     range = Str( '', label="Range", desc="range of data to be plotted")
 
     fit1 = Instance(Fits, ())
-
+    fit2 = Instance(Fits, ())
+    fit3 = Instance(Fits, ())
+    fit4 = Instance(Fits, ())
+    fit5 = Instance(Fits, ())
 
     raw_data = String()
-    saveraw = Button('Save Raw Data')
-    loadscan = Button('Load Scan')
+
     fitw=550
    
     view = View( Group(
                 Group(Item('plotme'),
                       Item('X2'),
                       Item('Y2'),
-                      spring,
-                      Item('loadscan', show_label=False ),
                       orientation='horizontal'
                       ),
     
@@ -255,13 +220,17 @@ class DataSet(HasTraits):
                      ),
                 Group(
                       Item('fit1', style='custom', width=fitw, show_label=False),
-                      show_border = True
-                     ) ,label='Set'   ),
+                      Item('fit2', style='custom', width=fitw, show_label=False),
+                      Item('fit3', style='custom', width=fitw, show_label=False),
+                      Item('fit4', style='custom', width=fitw, show_label=False),
+                      Item('fit5', style='custom', width=fitw, show_label=False),
+                      orientation='horizontal', 
+                      layout='tabbed', 
+                     ) ,  label='Set'   ),
                             
                     Group(     Item (
                                     'raw_data',show_label=False, springy=True, style='custom' 
-                                   ),
-                               Item('saveraw',show_label=False),label='Raw Data')
+                                   ),  label='Raw Data')
                                    ,dock='tab', height=600
               )
 
@@ -272,25 +241,6 @@ class DataSet(HasTraits):
        display(errmsg)
        self.raw_data = rawdat
        return data
-    
-    def _saveraw_changed(self):
-        """ Save raw data to choosen location"""
-      
-        file_name = save_file()
-        if file_name != '':
-            file_raw=open(file_name,"w+b")
-            file_raw.write('#dir:'+self.datadir+'\n')
-            file_raw.write('#range:'+self.range+'\n')
-            file_raw.write(self.raw_data)
-            file_raw.close()
-    def _loadscan_changed ( self ):
-        """ Handles the user clicking the 'Loadscan...' button. Load the sweep config file
-        """
-        infofile = open('%sdata/app3/comms/ScanInfo'%atomcool_lab_path, 'r')
-        self.datadir =  infofile.readline()
-        self.range = infofile.readline()
-        self.X = infofile.readline()
-        self.Y = infofile.readline()
       
 def process(dataset_array, image_clear, figure):
     """ Function called to do the processing """
@@ -307,7 +257,7 @@ def process(dataset_array, image_clear, figure):
             data = set.getdata_()
             
             datX, datY = (data[:,0], data[:,1])
-            fitX, fitY =  set.fit1.fit(data)  if set.fit1.dofit else (None,None)
+            fitX, fitY =  set.fit1.fit(data)
             
             if data !=None:
                 
@@ -419,10 +369,7 @@ class ControlPanel(HasTraits):
  
     clear = Button("clear")
     replot = Button("replot")
-    savepck = Button("save pck")
-    loadpck = Button("load pck")
-    loadscan = Button("load scan")
-    autoplot = Bool(False, desc="autoplotting: Check box to autplot", label="auto plotting")
+    autoplot = Bool(False, desc="autoplotting: Check box to autplot", label="auto")
 
     dat1 = Instance(DataSet, ())
     dat2 = Instance(DataSet, ())
@@ -443,22 +390,31 @@ class ControlPanel(HasTraits):
     
 
     view = View(  
-                  HGroup(Item('replot', show_label=False),Item('clear', show_label=False ),Item('autoplot', show_label=True ),spring,Item('savepck', show_label=False ),Item('loadpck', show_label=False )),           
-                  Item( '_' ),  
-                  VSplit(                       
-                       Item ('results_string',show_label=False, springy=True, style='custom'),
-                       Group(
+                            
+                                    Item('clear', show_label=False),
+                                    Item('replot', show_label=False ),
+                                    Item('autoplot', show_label=False ),
+                                    
+                                   
+                                  VSplit(
+
+                             
+                           Item (
+                                    'results_string',show_label=False, springy=True, style='custom' 
+                                   ),
+                                                                 Group(
                                      Item('dat1', style='custom', show_label=False),
                                      Item('dat2', style='custom', show_label=False),
                                      Item('dat3', style='custom', show_label=False),
                                      Item('dat4', style='custom', show_label=False),
                                      Item('dat5', style='custom', show_label=False),                                     
-                                     layout='tabbed', springy=True),
-                        ),
+                                     layout='tabbed', springy=True
+                                   ),
+                                   ),
                              
                 
-                  )
-        
+                )
+
 
     def _clear_fired(self):
         """Callback of the "clear" button.  This stops the fitting thread if necessary
@@ -502,26 +458,7 @@ class ControlPanel(HasTraits):
             self.fitting_thread.dat5 = self.dat5                   # Pass the data sets
             self.fitting_thread.start()                            # Start the fitting thread
 
-    def _savepck_changed ( self ):
-        """ Handles the user clicking the 'save pck...' button. Save the pck file to desired directory
-        """ 
-        file_name = save_file()
-        if file_name != '':
-            file_pck=open(file_name,"w+b")
-            print 'Saving panel to pck.'
-            self._pck_('save',file_pck)
-            file_pck.close()
-
-    def _loadpck_changed ( self ):
-        """ Handles the user clicking the 'Open...' button. Load the pck file from desired directory
-        """
-        file_name = open_file()
-        if file_name != '':
-            print 'Loading panel from pck.'
-            file_pck=open(file_name,"rb")
-            self._pck_('load',file_pck)
-            file_pck.close()
-                       
+    
     def add_line(self, string):
         """ Adds a line to the textbox display.
         """
@@ -603,7 +540,7 @@ class MainWindow(HasTraits):
     def _panel_default(self):
         return ControlPanel(figure=self.figure)
         
-    def _pck_(self,action,f='viewdata_win.pck'):
+    def _pck_(self,action,f='viewdata_win-080111.pck'):
         if action == 'load':
             try:
                 fpck=open(f,"rb")
@@ -615,7 +552,6 @@ class MainWindow(HasTraits):
             fpck=open(f,"w+b")
         self.panel._pck_(action,fpck)
         fpck.close()
-
 
     
     view = View(HSplit(Item('figure', editor=MPLFigureEditor(), dock='vertical'),

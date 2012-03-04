@@ -233,15 +233,12 @@ class DataSet(HasTraits):
 
     raw_data = String()
     saveraw = Button('Save Raw Data')
-    loadscan = Button('Load Scan')
     fitw=550
    
     view = View( Group(
                 Group(Item('plotme'),
                       Item('X2'),
                       Item('Y2'),
-                      spring,
-                      Item('loadscan', show_label=False ),
                       orientation='horizontal'
                       ),
     
@@ -283,14 +280,6 @@ class DataSet(HasTraits):
             file_raw.write('#range:'+self.range+'\n')
             file_raw.write(self.raw_data)
             file_raw.close()
-    def _loadscan_changed ( self ):
-        """ Handles the user clicking the 'Loadscan...' button. Load the sweep config file
-        """
-        infofile = open('%sdata/app3/comms/ScanInfo'%atomcool_lab_path, 'r')
-        self.datadir =  infofile.readline()
-        self.range = infofile.readline()
-        self.X = infofile.readline()
-        self.Y = infofile.readline()
       
 def process(dataset_array, image_clear, figure):
     """ Function called to do the processing """
@@ -421,7 +410,6 @@ class ControlPanel(HasTraits):
     replot = Button("replot")
     savepck = Button("save pck")
     loadpck = Button("load pck")
-    loadscan = Button("load scan")
     autoplot = Bool(False, desc="autoplotting: Check box to autplot", label="auto plotting")
 
     dat1 = Instance(DataSet, ())
@@ -521,7 +509,8 @@ class ControlPanel(HasTraits):
             file_pck=open(file_name,"rb")
             self._pck_('load',file_pck)
             file_pck.close()
-                       
+
+            
     def add_line(self, string):
         """ Adds a line to the textbox display.
         """
